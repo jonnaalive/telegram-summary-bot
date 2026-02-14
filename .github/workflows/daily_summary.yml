@@ -20,8 +20,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Restore Telethon session
-        run: echo "${{ secrets.TELETHON_SESSION }}" | base64 -d > telegram_summary_session.session
+      - name: Decrypt Telethon session
+        run: openssl enc -aes-256-cbc -d -salt -pbkdf2 -in telegram_summary_session.session.enc -out telegram_summary_session.session -pass pass:${{ secrets.SESSION_PASSWORD }}
 
       - name: Run summary bot
         env:
