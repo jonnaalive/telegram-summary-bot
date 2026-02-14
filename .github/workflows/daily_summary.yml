@@ -1,0 +1,41 @@
+name: Daily Summary
+
+on:
+  schedule:
+    # 매일 UTC 12:00 = KST 21:00
+    - cron: '0 12 * * *'
+  workflow_dispatch: # 수동 실행 가능
+
+jobs:
+  summarize:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore Telethon session
+        run: echo "${{ secrets.TELETHON_SESSION }}" | base64 -d > telegram_summary_session.session
+
+      - name: Run summary bot
+        env:
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OBSIDIAN_VAULT_PATH: ./summaries
+          FOLDER_NAMES: ${{ secrets.FOLDER_NAMES }}
+        run: python run_once.py
+
+      - name: Commit and push summary
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add summaries/
+          git diff --cached --quiet || git commit -m "📊 Daily summary $(date +%Y-%m-%d)"
+          git push
