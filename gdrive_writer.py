@@ -1,21 +1,27 @@
-"""Google Drive API로 옵시디언 볼트에 마크다운 저장."""
+"""Google Drive OAuth2로 옵시디언 볼트에 마크다운 저장."""
 
 import json
 import os
-from google.oauth2.service_account import Credentials
+
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaInMemoryUpload
-import config
 
-SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+TOKEN_URI = "https://oauth2.googleapis.com/token"
 
 
 def _get_service():
-    creds_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "")
-    if not creds_json:
+    token_json = os.getenv("GDRIVE_TOKEN", "")
+    if not token_json:
         return None
-    creds_data = json.loads(creds_json)
-    creds = Credentials.from_service_account_info(creds_data, scopes=SCOPES)
+    token_data = json.loads(token_json)
+    creds = Credentials(
+        token=None,
+        refresh_token=token_data["refresh_token"],
+        token_uri=TOKEN_URI,
+        client_id=token_data["client_id"],
+        client_secret=token_data["client_secret"],
+    )
     return build("drive", "v3", credentials=creds)
 
 
@@ -43,12 +49,12 @@ def upload_to_gdrive(content: str, filename: str) -> str | None:
     """마크다운 파일을 Google Drive 옵시디언 볼트에 업로드한다."""
     service = _get_service()
     if not service:
-        print("[!] Google Drive 서비스 계정 미설정, 스킵")
+        print("[!] GDRIVE_TOKEN 미설정, Google Drive 스킵")
         return None
 
     vault_folder_id = os.getenv("GDRIVE_VAULT_FOLDER_ID", "")
     if not vault_folder_id:
-        print("[!] GDRIVE_VAULT_FOLDER_ID 미설정, 스킵")
+        print("[!] GDRIVE_VAULT_FOLDER_ID 미설정, Google Drive 스킵")
         return None
 
     # Daily Summary 하위 폴더

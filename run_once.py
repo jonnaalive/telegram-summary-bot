@@ -33,7 +33,7 @@ async def run():
         # Google Drive 업로드
         import datetime
         content = build_content(summary, len(channel_names), len(messages))
-        filename = f"{datetime.date.today().isoformat()}.md"
+        filename = f"텔레그램_시장_데일리요약_{datetime.date.today().isoformat()}.md"
         upload_to_gdrive(content, filename)
 
         # 텔레그램 Saved Messages로 전송

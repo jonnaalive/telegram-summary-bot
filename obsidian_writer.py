@@ -22,7 +22,7 @@ def save(summary: str, channel_count: int, message_count: int) -> str:
     os.makedirs(folder, exist_ok=True)
 
     today = datetime.date.today().isoformat()
-    filepath = os.path.join(folder, f"{today}.md")
+    filepath = os.path.join(folder, f"텔레그램_시장_데일리요약_{today}.md")
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(content)
 
