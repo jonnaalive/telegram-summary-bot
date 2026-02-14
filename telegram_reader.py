@@ -42,15 +42,31 @@ async def get_all_channels(client: TelegramClient) -> list:
     return all_peers
 
 
-async def read_today_messages(client: TelegramClient) -> list[dict]:
-    """설정된 폴더들의 채널에서 오늘 메시지를 수집한다."""
+def load_last_run() -> datetime.datetime:
+    """마지막 실행 시각을 파일에서 읽는다. 없으면 24시간 전."""
+    try:
+        with open("last_run.txt", "r") as f:
+            return datetime.datetime.fromisoformat(f.read().strip())
+    except FileNotFoundError:
+        return datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=24)
+
+
+def save_last_run(dt: datetime.datetime):
+    """실행 시각을 파일에 저장한다."""
+    with open("last_run.txt", "w") as f:
+        f.write(dt.isoformat())
+
+
+async def read_messages_since_last_run(client: TelegramClient) -> list[dict]:
+    """마지막 실행 이후 메시지만 수집한다."""
     peers = await get_all_channels(client)
     if not peers:
         print(f"[!] 폴더 {config.FOLDER_NAMES}에서 채널을 찾을 수 없습니다.")
         return []
 
     now = datetime.datetime.now(datetime.timezone.utc)
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    since = load_last_run()
+    print(f"[+] {since.isoformat()} 이후 메시지 수집 중...")
 
     messages = []
     for peer in peers:
@@ -63,7 +79,7 @@ async def read_today_messages(client: TelegramClient) -> list[dict]:
                 offset_date=now,
                 reverse=False,
             ):
-                if msg.date < today_start:
+                if msg.date <= since:
                     break
                 if not msg.text:
                     continue
@@ -80,5 +96,6 @@ async def read_today_messages(client: TelegramClient) -> list[dict]:
         except Exception as e:
             print(f"[!] 채널 읽기 실패 ({peer}): {e}")
 
+    save_last_run(now)
     print(f"[+] 채널 {len(peers)}개에서 메시지 {len(messages)}개 수집 완료")
     return messages
