@@ -1,7 +1,7 @@
-import anthropic
+from openai import OpenAI
 import config
 
-MODEL = "claude-haiku-4-5-20251001"
+MODEL = "gpt-4o-mini"
 
 SYSTEM_PROMPT = """\
 당신은 금융·경제 뉴스 전문 편집자입니다.
@@ -42,7 +42,7 @@ SYSTEM_PROMPT = """\
 
 
 def summarize(messages: list[dict]) -> str:
-    """메시지 목록을 Claude API로 요약한다."""
+    """메시지 목록을 OpenAI API로 요약한다."""
     if not messages:
         return "수집된 메시지가 없습니다."
 
@@ -58,11 +58,13 @@ def summarize(messages: list[dict]) -> str:
         for t in texts:
             user_content += f"- {t[:500]}\n"
 
-    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
-    response = client.messages.create(
+    client = OpenAI(api_key=config.OPENAI_API_KEY)
+    response = client.chat.completions.create(
         model=MODEL,
         max_tokens=4096,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_content}],
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_content},
+        ],
     )
-    return response.content[0].text
+    return response.choices[0].message.content
