@@ -3,7 +3,7 @@ from openai import OpenAI
 import config
 
 MODEL = "gpt-4o-mini"
-MAX_CHARS_PER_CHUNK = 300000  # ~75K tokens, 안전하게 TPM 한도 내
+MAX_CHARS_PER_CHUNK = 120000  # ~30K tokens, 128K 컨텍스트 한도 내 안전 마진
 
 SYSTEM_PROMPT = """\
 당신은 금융·경제 뉴스 전문 편집자입니다.
