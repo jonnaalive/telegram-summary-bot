@@ -35,6 +35,8 @@ jobs:
           FOLDER_NAMES: ${{ secrets.FOLDER_NAMES }}
           GDRIVE_TOKEN: ${{ secrets.GDRIVE_TOKEN }}
           GDRIVE_VAULT_FOLDER_ID: ${{ secrets.GDRIVE_VAULT_FOLDER_ID }}
+          MONITOR_URL: ${{ secrets.MONITOR_URL }}
+          MONITOR_API_KEY: ${{ secrets.MONITOR_API_KEY }}
         run: python run_once.py
 
       - name: Commit and push summary

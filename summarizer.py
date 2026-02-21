@@ -1,6 +1,7 @@
 import time
 from openai import OpenAI
 import config
+from llm_tracker import track_openai
 
 MODEL = "gpt-4o-mini"
 MAX_CHARS_PER_CHUNK = 120000  # ~30K tokens, 128K 컨텍스트 한도 내 안전 마진
@@ -126,6 +127,7 @@ def summarize(messages: list[dict]) -> str:
                 {"role": "user", "content": user_content},
             ],
         )
+        track_openai("telegram-summary-bot", response)
         return response.choices[0].message.content
 
     # 청크 분할 → 부분 요약 → 최종 병합
@@ -145,6 +147,7 @@ def summarize(messages: list[dict]) -> str:
                 {"role": "user", "content": chunk},
             ],
         )
+        track_openai("telegram-summary-bot", response)
         partial_summaries.append(response.choices[0].message.content)
 
     # 최종 병합
@@ -161,4 +164,5 @@ def summarize(messages: list[dict]) -> str:
             {"role": "user", "content": merged_input},
         ],
     )
+    track_openai("telegram-summary-bot", response)
     return response.choices[0].message.content

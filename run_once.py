@@ -44,6 +44,10 @@ async def run():
 
         print("[+] 완료!")
 
+    # bot-monitor heartbeat
+    from heartbeat import send_heartbeat_sync
+    send_heartbeat_sync("telegram-summary-bot")
+
 
 if __name__ == "__main__":
     asyncio.run(run())
