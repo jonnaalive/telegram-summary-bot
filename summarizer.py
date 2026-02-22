@@ -1,10 +1,9 @@
 import time
-from openai import OpenAI
+import google.generativeai as genai
 import config
-from llm_tracker import track_openai
 
-MODEL = "gpt-4o-mini"
-MAX_CHARS_PER_CHUNK = 120000  # ~30K tokens, 128K 컨텍스트 한도 내 안전 마진
+MODEL = "gemini-1.5-flash"
+MAX_CHARS_PER_CHUNK = 120000
 
 SYSTEM_PROMPT = """\
 당신은 금융·경제 뉴스 전문 편집자입니다.
@@ -110,25 +109,22 @@ def _split_chunks(user_content: str) -> list[str]:
 
 
 def summarize(messages: list[dict]) -> str:
-    """메시지 목록을 OpenAI API로 요약한다."""
+    """메시지 목록을 Gemini API로 요약한다."""
     if not messages:
         return "수집된 메시지가 없습니다."
 
     user_content = _build_user_content(messages)
-    client = OpenAI(api_key=config.OPENAI_API_KEY)
+
+    genai.configure(api_key=config.GEMINI_API_KEY)
+    model = genai.GenerativeModel(MODEL)
 
     # 단일 호출로 처리 가능한 경우
     if len(user_content) <= MAX_CHARS_PER_CHUNK:
-        response = client.chat.completions.create(
-            model=MODEL,
-            max_tokens=4096,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_content},
-            ],
+        response = model.generate_content(
+            f"{SYSTEM_PROMPT}\n\n{user_content}",
+            generation_config=genai.GenerationConfig(max_output_tokens=4096),
         )
-        track_openai("telegram-summary-bot", response)
-        return response.choices[0].message.content
+        return response.text
 
     # 청크 분할 → 부분 요약 → 최종 병합
     chunks = _split_chunks(user_content)
@@ -138,31 +134,21 @@ def summarize(messages: list[dict]) -> str:
     for i, chunk in enumerate(chunks):
         print(f"[*] 청크 {i+1}/{len(chunks)} 요약 중...")
         if i > 0:
-            time.sleep(5)  # TPM 한도 여유 확보
-        response = client.chat.completions.create(
-            model=MODEL,
-            max_tokens=2048,
-            messages=[
-                {"role": "system", "content": CHUNK_SYSTEM_PROMPT},
-                {"role": "user", "content": chunk},
-            ],
+            time.sleep(2)  # Rate limit 여유
+        response = model.generate_content(
+            f"{CHUNK_SYSTEM_PROMPT}\n\n{chunk}",
+            generation_config=genai.GenerationConfig(max_output_tokens=2048),
         )
-        track_openai("telegram-summary-bot", response)
-        partial_summaries.append(response.choices[0].message.content)
+        partial_summaries.append(response.text)
 
     # 최종 병합
     print("[*] 부분 요약 병합 중...")
-    time.sleep(5)
+    time.sleep(2)
     merged_input = "\n\n---\n\n".join(
         f"### 배치 {i+1} 요약\n{s}" for i, s in enumerate(partial_summaries)
     )
-    response = client.chat.completions.create(
-        model=MODEL,
-        max_tokens=4096,
-        messages=[
-            {"role": "system", "content": MERGE_SYSTEM_PROMPT},
-            {"role": "user", "content": merged_input},
-        ],
+    response = model.generate_content(
+        f"{MERGE_SYSTEM_PROMPT}\n\n{merged_input}",
+        generation_config=genai.GenerationConfig(max_output_tokens=4096),
     )
-    track_openai("telegram-summary-bot", response)
-    return response.choices[0].message.content
+    return response.text
