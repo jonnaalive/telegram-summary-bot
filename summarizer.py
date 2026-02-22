@@ -2,7 +2,7 @@ import time
 import google.generativeai as genai
 import config
 
-MODEL = "gemini-1.5-flash"
+MODEL = "gemini-2.0-flash"
 MAX_CHARS_PER_CHUNK = 120000
 
 SYSTEM_PROMPT = """\
