@@ -1,8 +1,6 @@
 import time
-import google.generativeai as genai
 import config
 
-MODEL = "gemini-2.0-flash"
 MAX_CHARS_PER_CHUNK = 120000
 
 SYSTEM_PROMPT = """\
@@ -84,6 +82,53 @@ MERGE_SYSTEM_PROMPT = """\
 """
 
 
+def _call_llm(prompt: str, max_tokens: int = 4096) -> str:
+    """Gemini → OpenAI → Claude 폴백 체인으로 LLM을 호출한다."""
+    # 1) Gemini
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=config.GEMINI_API_KEY)
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.GenerationConfig(max_output_tokens=max_tokens),
+        )
+        print("[*] LLM: Gemini 사용")
+        return response.text
+    except Exception as e:
+        print(f"[!] Gemini 실패: {e}")
+
+    # 2) OpenAI
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=config.OPENAI_API_KEY)
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+        )
+        print("[*] LLM: OpenAI 사용")
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"[!] OpenAI 실패: {e}")
+
+    # 3) Claude
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=max_tokens,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        print("[*] LLM: Claude 사용")
+        return response.content[0].text
+    except Exception as e:
+        print(f"[!] Claude 실패: {e}")
+
+    raise RuntimeError("모든 LLM API 호출 실패")
+
+
 def _build_user_content(messages: list[dict]) -> str:
     """메시지를 채널별로 정리한 텍스트를 생성한다."""
     grouped: dict[str, list[str]] = {}
@@ -123,16 +168,9 @@ def summarize(messages: list[dict]) -> str:
 
     user_content = _build_user_content(messages)
 
-    genai.configure(api_key=config.GEMINI_API_KEY)
-    model = genai.GenerativeModel(MODEL)
-
     # 단일 호출로 처리 가능한 경우
     if len(user_content) <= MAX_CHARS_PER_CHUNK:
-        response = model.generate_content(
-            f"{SYSTEM_PROMPT}\n\n{user_content}",
-            generation_config=genai.GenerationConfig(max_output_tokens=4096),
-        )
-        return response.text
+        return _call_llm(f"{SYSTEM_PROMPT}\n\n{user_content}", max_tokens=4096)
 
     # 청크 분할 → 부분 요약 → 최종 병합
     chunks = _split_chunks(user_content)
@@ -143,11 +181,8 @@ def summarize(messages: list[dict]) -> str:
         print(f"[*] 청크 {i+1}/{len(chunks)} 요약 중...")
         if i > 0:
             time.sleep(2)  # Rate limit 여유
-        response = model.generate_content(
-            f"{CHUNK_SYSTEM_PROMPT}\n\n{chunk}",
-            generation_config=genai.GenerationConfig(max_output_tokens=2048),
-        )
-        partial_summaries.append(response.text)
+        result = _call_llm(f"{CHUNK_SYSTEM_PROMPT}\n\n{chunk}", max_tokens=2048)
+        partial_summaries.append(result)
 
     # 최종 병합
     print("[*] 부분 요약 병합 중...")
@@ -155,8 +190,4 @@ def summarize(messages: list[dict]) -> str:
     merged_input = "\n\n---\n\n".join(
         f"### 배치 {i+1} 요약\n{s}" for i, s in enumerate(partial_summaries)
     )
-    response = model.generate_content(
-        f"{MERGE_SYSTEM_PROMPT}\n\n{merged_input}",
-        generation_config=genai.GenerationConfig(max_output_tokens=4096),
-    )
-    return response.text
+    return _call_llm(f"{MERGE_SYSTEM_PROMPT}\n\n{merged_input}", max_tokens=4096)
