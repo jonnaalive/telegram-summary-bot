@@ -31,10 +31,13 @@ async def run():
         filepath = save(summary, len(channel_names), len(messages))
 
         # Google Drive 업로드
-        import datetime
-        content = build_content(summary, len(channel_names), len(messages))
-        filename = f"텔레그램_시장_데일리요약_{datetime.date.today().isoformat()}.md"
-        upload_to_gdrive(content, filename)
+        try:
+            import datetime
+            content = build_content(summary, len(channel_names), len(messages))
+            filename = f"텔레그램_시장_데일리요약_{datetime.date.today().isoformat()}.md"
+            upload_to_gdrive(content, filename)
+        except Exception as e:
+            print(f"[!] Google Drive 업로드 실패 (계속 진행): {e}")
 
         # 텔레그램 Saved Messages로 전송
         print("[*] 텔레그램으로 전송 중...")
