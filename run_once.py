@@ -1,10 +1,12 @@
 """수동 1회 실행 스크립트. 테스트/디버그 및 Task Scheduler 등록용."""
 
 import asyncio
+import os
 from telegram_reader import create_client, read_messages_since_last_run, get_all_channels
 from summarizer import summarize
 from obsidian_writer import save, build_content
 from gdrive_writer import upload_to_gdrive
+from bot_sender import send_via_bot
 
 
 async def run():
@@ -43,7 +45,15 @@ async def run():
         print("[*] 텔레그램으로 전송 중...")
         tg_message = f"📊 **시장 데일리 요약**\n\n{summary}\n\n---\n_채널 {len(channel_names)}개 | 메시지 {len(messages)}개_"
         await client.send_message("me", tg_message)
-        print("[+] 텔레그램 전송 완료!")
+        print("[+] 텔레그램 Saved Messages 전송 완료!")
+
+        # 텔레그램 봇으로 알림 발송
+        try:
+            bot_message = f"📊 <b>시장 데일리 요약</b>\n\n{summary}\n\n━━━━━━━━━━━━\n📡 채널 {len(channel_names)}개 | 메시지 {len(messages)}개"
+            await send_via_bot(bot_message)
+            print("[+] 텔레그램 봇 발송 완료!")
+        except Exception as e:
+            print(f"[!] 텔레그램 봇 발송 실패 (계속 진행): {e}")
 
         print("[+] 완료!")
 
