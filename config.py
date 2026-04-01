@@ -8,5 +8,6 @@ TELEGRAM_API_HASH = os.getenv("TELEGRAM_API_HASH", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 OBSIDIAN_VAULT_PATH = os.getenv("OBSIDIAN_VAULT_PATH", "")
 FOLDER_NAMES = [name.strip() for name in os.getenv("FOLDER_NAMES", "FOLLOW").split(",")]

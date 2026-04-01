@@ -1,7 +1,7 @@
 import time
 import config
 
-MAX_CHARS_PER_CHUNK = 120000
+MAX_CHARS_PER_CHUNK = 30000
 
 SYSTEM_PROMPT = """\
 당신은 금융·경제 뉴스 전문 편집자이자 주식 애널리스트입니다.
@@ -83,8 +83,22 @@ MERGE_SYSTEM_PROMPT = """\
 
 
 def _call_llm(prompt: str, max_tokens: int = 4096) -> str:
-    """Gemini → OpenAI → Claude 폴백 체인으로 LLM을 호출한다."""
-    # 1) Gemini
+    """Groq → Gemini → OpenAI → Claude 폴백 체인으로 LLM을 호출한다."""
+    # 1) Groq (무료, 빠름)
+    try:
+        from groq import Groq
+        client = Groq(api_key=config.GROQ_API_KEY)
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+        )
+        print("[*] LLM: Groq 사용")
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"[!] Groq 실패: {e}")
+
+    # 2) Gemini
     try:
         import google.generativeai as genai
         genai.configure(api_key=config.GEMINI_API_KEY)
@@ -145,17 +159,16 @@ def _build_user_content(messages: list[dict]) -> str:
 
 
 def _split_chunks(user_content: str) -> list[str]:
-    """긴 텍스트를 채널 단위로 청크 분할한다."""
-    sections = user_content.split("\n### ")
+    """긴 텍스트를 줄 단위로 청크 분할한다."""
+    lines = user_content.split("\n")
     chunks = []
     current = ""
-    for section in sections:
-        section_text = "\n### " + section if section else ""
-        if len(current) + len(section_text) > MAX_CHARS_PER_CHUNK and current:
+    for line in lines:
+        if len(current) + len(line) + 1 > MAX_CHARS_PER_CHUNK and current:
             chunks.append(current)
-            current = section_text
+            current = line
         else:
-            current += section_text
+            current = current + "\n" + line if current else line
     if current:
         chunks.append(current)
     return chunks
